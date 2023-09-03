@@ -4,3 +4,13 @@ storybook-static/
 build-storybook.log
 .DS_Store
 .env
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
