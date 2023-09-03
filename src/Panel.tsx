@@ -1,18 +1,30 @@
-import React from 'react';
+import React, {useEffect} from 'react';
 import {
   useAddonState,
-  useChannel,
   useStorybookApi,
 } from '@storybook/manager-api';
 import { SNIPPET_RENDERED } from '@storybook/docs-tools';
 import { ADDON_ID } from "./constants";
-import { SyntaxHighlighter, SyntaxHighlighterProps } from "@storybook/components";
+import {SyntaxHighlighter, SyntaxHighlighterFormatTypes, SyntaxHighlighterProps} from "@storybook/components";
 import { styled } from "@storybook/theming";
+import { SourceItem } from "@storybook/blocks";
+import { Args, StoryId } from "@storybook/types";
 
 interface PanelProps {
   active: boolean;
   key: string;
 }
+
+type StorySources = Record<StoryId, SourceItem>
+
+
+type SnippetRenderedEvent = {
+  id: StoryId;
+  source: string;
+  args?: Args;
+  format?: SyntaxHighlighterFormatTypes;
+};
+
 
 const StyledSyntaxHighlighter: React.FunctionComponent<SyntaxHighlighterProps> = styled(
   SyntaxHighlighter
@@ -29,34 +41,70 @@ const StyledSyntaxHighlighter: React.FunctionComponent<SyntaxHighlighterProps> =
   },
 }));
 
-export const Panel: React.FC<PanelProps> = (props) => {
+const Panel: React.FC = () => {
   const api = useStorybookApi();
   const story = api.getCurrentStoryData();
 
-  // https://storybook.js.org/docs/react/addons/addons-api#useaddonstate
-  const [{ code }, setState] = useAddonState(ADDON_ID, {
-    code: null,
-  });
+  const [sources] = useAddonState<StorySources>(ADDON_ID, {});
 
-  useChannel({
-    [SNIPPET_RENDERED]: (data) => {
-      console.log("data", data);
-      const code = data.source ?? null;
-      setState((state) => ({ ...state, code }));
-    }
-  });
-
-  const format = false;
+  const id = story?.id ?? "";
   const language = 'jsx';
+  const source = sources[id];
+  const format = source?.format ?? false;
 
-  return props.active && !!story && !!code ? (
+  return source ? (
     <StyledSyntaxHighlighter
-      key={props.key}
       copyable
       format={format}
       language={language}
     >
-      { code }
+      { source.code }
     </StyledSyntaxHighlighter>
+  ) : null;
+}
+
+export const WrapperPanel: React.FC<PanelProps> = (props) => {
+  const api = useStorybookApi();
+  const channel = api.getChannel();
+
+  // https://storybook.js.org/docs/react/addons/addons-api#useaddonstate
+  const [sources, setState] = useAddonState<StorySources>(ADDON_ID, {});
+
+  useEffect(() => {
+    const handleSnippetRendered = (
+      idOrEvent: StoryId | SnippetRenderedEvent,
+      inputSource: string = null,
+      inputFormat: SyntaxHighlighterFormatTypes = false
+    ) => {
+      const {
+        id,
+        args = undefined,
+        source,
+        format,
+      } = typeof idOrEvent === 'string'
+        ? {
+          id: idOrEvent,
+          source: inputSource,
+          format: inputFormat,
+        }
+        : idOrEvent;
+
+      console.log("data", idOrEvent);
+
+      setState((current) => {
+        return {
+          ...current,
+          [id]: { code: source, format },
+        }
+      });
+    };
+
+    channel.on(SNIPPET_RENDERED, handleSnippetRendered);
+
+    return () => channel.off(SNIPPET_RENDERED, handleSnippetRendered);
+  });
+
+  return props.active ? (
+    <Panel key={props.key} />
   ) : null;
 };
