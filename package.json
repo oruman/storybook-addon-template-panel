@@ -1,6 +1,6 @@
 {
   "name": "storybook-addon-template-panel",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "StoryBook Addon to display template related to a story. Framework agnostic",
   "keywords": [
     "panel", "code", "addon", "storybook", "storybook-addons"

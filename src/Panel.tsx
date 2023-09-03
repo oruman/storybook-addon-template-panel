@@ -1,36 +1,62 @@
-import React from "react";
-import { useAddonState, useChannel } from "@storybook/manager-api";
-import { AddonPanel } from "@storybook/components";
-import { ADDON_ID, EVENTS } from "./constants";
-import { PanelContent } from "./components/PanelContent";
+import React from 'react';
+import {
+  useAddonState,
+  useChannel,
+  useStorybookApi,
+} from '@storybook/manager-api';
+import { SNIPPET_RENDERED } from '@storybook/docs-tools';
+import { ADDON_ID } from "./constants";
+import { SyntaxHighlighter, SyntaxHighlighterProps } from "@storybook/components";
+import { styled } from "@storybook/theming";
 
 interface PanelProps {
   active: boolean;
+  key: string;
 }
 
+const StyledSyntaxHighlighter: React.FunctionComponent<SyntaxHighlighterProps> = styled(
+  SyntaxHighlighter
+)(({ theme }) => ({
+  // DocBlocks-specific styling and overrides
+  fontSize: `${theme.typography.size.s2 - 1}px`,
+  lineHeight: '19px',
+  borderRadius: theme.appBorderRadius,
+  boxShadow:
+    theme.base === 'light' ? 'rgba(0, 0, 0, 0.10) 0 1px 3px 0' : 'rgba(0, 0, 0, 0.20) 0 2px 5px 0',
+  'pre.prismjs': {
+    padding: 20,
+    background: 'inherit',
+  },
+}));
+
 export const Panel: React.FC<PanelProps> = (props) => {
+  const api = useStorybookApi();
+  const story = api.getCurrentStoryData();
+
   // https://storybook.js.org/docs/react/addons/addons-api#useaddonstate
-  const [results, setState] = useAddonState(ADDON_ID, {
-    danger: [],
-    warning: [],
+  const [{ code }, setState] = useAddonState(ADDON_ID, {
+    code: null,
   });
 
-  // https://storybook.js.org/docs/react/addons/addons-api#usechannel
-  const emit = useChannel({
-    [EVENTS.RESULT]: (newResults) => setState(newResults),
+  useChannel({
+    [SNIPPET_RENDERED]: (data) => {
+      console.log("data", data);
+      const code = data.source ?? null;
+      setState((state) => ({ ...state, code }));
+    }
   });
 
-  return (
-    <AddonPanel {...props}>
-      <PanelContent
-        results={results}
-        fetchData={() => {
-          emit(EVENTS.REQUEST);
-        }}
-        clearData={() => {
-          emit(EVENTS.CLEAR);
-        }}
-      />
-    </AddonPanel>
-  );
+  const format = false;
+  const language = 'jsx';
+
+  return props.active && !!story && !!code ? (
+    <StyledSyntaxHighlighter
+      key={props.key}
+      copyable
+      format={format}
+      language={language}
+    >
+      { code }
+    </StyledSyntaxHighlighter>
+  ) : null;
 };
